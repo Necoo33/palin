@@ -1,0 +1,18 @@
+[package]
+name = "palin"
+version = "0.1.0"
+edition = "2021"
+authors = ["Necdet Arda Etiman"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Necoo33/palin"
+categories = ["data-structures", "no-std", "os::linux-apis"]
+keywords = ["linux", "package-managers", "program", "apt", "yum"]
+description = "Utility Liblary for linux's package managers, such as apt, yum, pacman."
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "palin"
+
+[dependencies]
