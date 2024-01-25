@@ -1,3 +1,12 @@
+#[derive(Debug)]
+pub struct AptProgram {
+    pub name: String,
+    pub repos: Vec<String>,
+    pub version: String,
+    pub core_type: String,
+    pub traits: Vec<String>
+}
+
 pub fn find_package_managers<'a>() -> Vec<&'a str> {
     let mut package_manager = vec![];
 
@@ -51,6 +60,159 @@ pub fn find_package_managers<'a>() -> Vec<&'a str> {
     }
 
     return package_manager
+}
+
+// burada apt için yapdığının aynısını diğer paket idarecileri için de yapan ufuleleri yazdığında 
+// paketin yeni halini neşredebilirsin.
+
+pub fn get_apt_program(program_name: &str) -> std::result::Result<AptProgram, std::io::Error> { // Örnek bir program adı
+    let apt_command = std::process::Command::new("apt")
+                                        .args(&["list", "--installed"])
+                                        .stdout(std::process::Stdio::piped())
+                                        .spawn()
+                                        .expect("apt command failed to start");
+    
+    let grep_command = std::process::Command::new("grep")
+                                                        .arg(program_name)
+                                                        .stdin(apt_command.stdout.expect("Failed to open apt stdout"))
+                                                        .output();
+
+    match grep_command {
+        Ok(program) => {
+            let program_output = std::str::from_utf8(&program.stdout).unwrap();
+
+            println!("our program output: {}", program_output);
+
+            let mut name = String::new();
+            let mut repos: Vec<String> = vec![];
+            let mut version = String::new();
+            let mut core_type = String::new();
+            let mut traits: Vec<String> = vec![];
+
+            for line in program_output.lines() {
+                if !line.starts_with(program_name) {
+                    continue;
+                }
+
+                let split_the_line: Vec<&str> = line.split("now").collect();
+
+                let name_and_repo_infos: Vec<&str> = split_the_line[0].split("/").collect();
+
+                name = name_and_repo_infos[0].to_string();
+
+                let repos_string: Vec<&str> = name_and_repo_infos[1].split(",").collect();
+
+                for repo in repos_string {
+                    if repo == "" {
+                        continue;
+                    }
+
+                    repos.push(repo.to_string())
+                }
+
+                let other_infos: Vec<&str> = split_the_line[1].trim().split(" ").collect();
+
+                version = other_infos[0].to_string();
+
+                match other_infos[1] {
+                    "amd64" => core_type = "64-bit".to_string(),
+                    "i386" => core_type = "32-bit".to_string(),
+                    "all" => core_type = "all".to_string(),
+                    &_ => eprintln!("Core type couldn't spotted")
+                }
+
+                let replace_and_split_last_traits_info = other_infos[2].replace("[", "").replace("]", "");
+                let replace_and_split_last_traits_info: Vec<&str> = replace_and_split_last_traits_info.split(",").collect();
+
+                for individual_trait in replace_and_split_last_traits_info {
+                    traits.push(individual_trait.to_string())
+                }
+            }
+
+            return Ok(AptProgram {
+                name, repos: repos.clone(), version, core_type: core_type.clone(), traits: traits.clone()
+            })
+        },
+        Err(error) => {
+            return Err(std::io::Error::new(std::io::ErrorKind::NotFound, error))
+        }
+    }
+}
+
+pub fn list_all_apt_programs() -> std::result::Result<Vec<AptProgram>, std::io::Error>  {
+    let mut all_programs: Vec<AptProgram> = vec![];
+    let mut error_string = String::new();
+
+    let get_programs_command = std::process::Command::new("apt")
+                                                                                .arg("list")
+                                                                                .arg("--installed")
+                                                                                .output();
+
+    match get_programs_command {
+        Ok(programs) => {
+            let our_command = std::str::from_utf8(&programs.stdout).unwrap();
+
+            for line in our_command.lines() {
+                if line.starts_with("Listing") {
+                    continue;
+                }
+
+                let mut name = String::new();
+                let mut repos: Vec<String> = vec![];
+                let mut version = String::new();
+                let mut core_type = String::new();
+                let mut traits: Vec<String> = vec![];
+
+                let split_the_line: Vec<&str> = line.split("now").collect();
+
+                let name_and_repo_infos: Vec<&str> = split_the_line[0].split("/").collect();
+
+                name = name_and_repo_infos[0].to_string();
+
+                let repos_string: Vec<&str> = name_and_repo_infos[1].split(",").collect();
+
+                for repo in repos_string {
+                    if repo == "" {
+                        continue;
+                    }
+
+                    repos.push(repo.to_string())
+                }
+
+                let other_infos: Vec<&str> = split_the_line[1].trim().split(" ").collect();
+
+                version = other_infos[0].to_string();
+
+                match other_infos[1] {
+                    "amd64" => core_type = "64-bit".to_string(),
+                    "i386" => core_type = "32-bit".to_string(),
+                    "all" => core_type = "all".to_string(),
+                    &_ => eprintln!("Core type couldn't spotted")
+                }
+
+                let replace_and_split_last_traits_info = other_infos[2].replace("[", "").replace("]", "");
+                let replace_and_split_last_traits_info: Vec<&str> = replace_and_split_last_traits_info.split(",").collect();
+
+                for individual_trait in replace_and_split_last_traits_info {
+                    traits.push(individual_trait.to_string())
+                }
+
+                let new_apt_program = AptProgram {
+                    name, repos: repos.clone(), version, core_type: core_type.clone(), traits: traits.clone()
+                };
+
+                all_programs.push(new_apt_program)
+            }
+        },
+        Err(error) => {
+            error_string = format!("{}", error);
+        }
+    }
+
+    return match error_string.as_str() {
+        "" => Ok(all_programs),
+        &_ => Err(std::io::Error::new(std::io::ErrorKind::NotFound, error_string))
+    }
 }
 
 pub fn check_if_exist_in_apt(program_name: &str) -> bool  {

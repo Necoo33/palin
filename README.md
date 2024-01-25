@@ -2,6 +2,8 @@
 
 Palin is a Utility Liblary for linux's package managers, such as apt, yum, pacman. It can detect which package managers installed in a linux distro, checks if a program installed in that. In next releases, new utilites will be added.
 
+Consider to give a like on [github repo](https://github.com/Necoo33/palin) if you like that crate.
+
 ## Guide
 
 ```rust
@@ -50,6 +52,22 @@ fn main(){
     let is_wget_exist = check_if_wget_exist();
     let is_dig_exist = check_if_dig_exist();
     let is_ip_exist = check_if_ip_exist();
+}
+
+```
+
+Then you can get an apt program if apt exist:
+
+```rust
+
+use palin::*;
+
+fn main(){
+    // check if apt exist before
+
+    let get_wget_program = get_apt_program("wget").unwrap();
+
+    // do your other stuff 
 }
 
 ```
