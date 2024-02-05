@@ -7,6 +7,22 @@ pub struct AptProgram {
     pub traits: Vec<String>
 }
 
+#[derive(Debug)]
+pub struct YumProgram {
+    pub name: String,
+    pub core_type: String,
+    pub version: String,
+    pub release: String,
+    pub repository: String,
+    pub from_repo: String,
+    pub size: String,
+    pub source: String,
+    pub summary: String,
+    pub url: String,
+    pub license: String,
+    pub description: String
+}
+
 pub fn find_package_managers<'a>() -> Vec<&'a str> {
     let mut package_manager = vec![];
 
@@ -61,9 +77,6 @@ pub fn find_package_managers<'a>() -> Vec<&'a str> {
 
     return package_manager
 }
-
-// burada apt için yapdığının aynısını diğer paket idarecileri için de yapan ufuleleri yazdığında 
-// paketin yeni halini neşredebilirsin.
 
 pub fn get_apt_program(program_name: &str) -> std::result::Result<AptProgram, std::io::Error> { // Örnek bir program adı
     let apt_command = std::process::Command::new("apt")
@@ -242,6 +255,197 @@ pub fn check_if_exist_in_apt(program_name: &str) -> bool  {
     }
 
     return result
+}
+
+pub fn get_yum_program(program: &str) -> std::result::Result<YumProgram, std::io::Error> {
+    let get_yum_lists = std::process::Command::new("yum").arg("info").arg(program).output();
+
+    match get_yum_lists {
+        Ok(answer) => {
+            let parse_answer = std::str::from_utf8(&answer.stdout).unwrap();
+            let mut name = String::new();
+            let mut core_type = String::new();
+            let mut version = String::new();
+            let mut release = String::new();
+            let mut repository = String::new();
+            let mut from_repo = String::new();
+            let mut size = String::new();
+            let mut source = String::new();
+            let mut summary = String::new();
+            let mut url = String::new();
+            let mut license = String::new();
+            let mut description = String::new();
+
+            for (_, line) in parse_answer.lines().into_iter().enumerate() {
+                let split_the_output: Vec<&str> = line.split(" :").collect::<Vec<&str>>();
+
+                if line.starts_with("Name") {
+                    name = split_the_output[1].trim().to_string();
+                }
+
+                if line.starts_with("Architecture") {
+                    core_type = split_the_output[1].trim().to_string();
+                }
+
+                if line.starts_with("Version") {
+                    version = split_the_output[1].trim().to_string();
+                }
+
+                if line.starts_with("Release") {
+                    release = split_the_output[1].trim().to_string();
+                }
+
+                if line.starts_with("Size") {
+                    size = split_the_output[1].trim().to_string();
+                }
+
+                if line.starts_with("Source") {
+                    source = split_the_output[1].trim().to_string();
+                }
+
+                if line.starts_with("Repository") {
+                    repository = split_the_output[1].trim().to_string();
+                }
+
+                if line.starts_with("From repo") {
+                    from_repo = split_the_output[1].trim().to_string();
+                }
+
+                if line.starts_with("Summary") {
+                    summary = split_the_output[1].trim().to_string();
+                }
+
+                if line.starts_with("URL") {
+                    url = split_the_output[1].trim().to_string();
+                }
+
+                if line.starts_with("License") {
+                    license = split_the_output[1].trim().to_string();
+                }
+
+                if line.starts_with("Description") {
+                    description = split_the_output[1].trim().to_string();
+                }
+
+                if line.starts_with(" ") {
+                    description.push_str(split_the_output[1].trim());
+                    description.push_str(" ");
+                }
+            }
+
+            Ok(YumProgram{
+                name, core_type, version, release, description, summary, license, repository, from_repo, url, source, size
+            })
+        },
+        Err(error) => {
+            eprintln!("that error occured: {}", error);
+
+            Err(std::io::Error::new(std::io::ErrorKind::NotFound, error))
+        }
+    }
+}
+
+
+pub fn list_all_yum_programs() -> std::result::Result<Vec<YumProgram>, std::io::Error> {
+    let get_yum_lists = std::process::Command::new("yum").arg("info").arg("installed").output();
+
+    match get_yum_lists {
+        Ok(answer) => {
+            let parse_answer = std::str::from_utf8(&answer.stdout).unwrap();
+            let split_the_parsed_answer: Vec<&str> = parse_answer.split("Name").collect::<Vec<&str>>();
+            
+            let mut programs = vec![];
+
+            for program in split_the_parsed_answer.into_iter() {
+                let mut name = String::new();
+                let mut core_type = String::new();
+                let mut version = String::new();
+                let mut release = String::new();
+                let mut repository = String::new();
+                let mut from_repo = String::new();
+                let mut size = String::new();
+                let mut source = String::new();
+                let mut summary = String::new();
+                let mut url = String::new();
+                let mut license = String::new();
+                let mut description = String::new();
+
+                for (info_index, line) in program.lines().into_iter().enumerate() {
+                    let split_the_output: Vec<&str> = line.split(":").collect::<Vec<&str>>();
+                    
+                    if info_index == 0 {
+                        name = split_the_output.join("").trim().to_string();
+                    }
+
+                    if line.starts_with("Architecture") {
+                        core_type = split_the_output[1].trim().to_string();
+                    }
+
+                    if line.starts_with("Version") {
+                        version = split_the_output[1].trim().to_string();
+                    }
+
+                    if line.starts_with("Release") {
+                        release = split_the_output[1].trim().to_string();
+                    }
+
+                    if line.starts_with("Size") {
+                        size = split_the_output[1].trim().to_string();
+                    }
+
+                    if line.starts_with("Source") {
+                        source = split_the_output[1].trim().to_string();
+                    }
+
+                    if line.starts_with("Repository") {
+                        repository = split_the_output[1].trim().to_string();
+                    }
+
+                    if line.starts_with("From repo") {
+                        from_repo = split_the_output[1].trim().to_string();
+                    }
+
+                    if line.starts_with("Summary") {
+                        summary = split_the_output[1].trim().to_string();
+                    }
+
+                    if line.starts_with("URL") {
+                        let split_the_output: Vec<&str> = line.split(" :").collect::<Vec<&str>>();
+
+                        url = split_the_output[1].trim().to_string();
+                    }
+
+                    if line.starts_with("License") {
+                        license = split_the_output[1].trim().to_string();
+                    }
+
+                    if line.starts_with("Description") {
+                        description = split_the_output[1].trim().to_string();
+                        description.push_str(" ");
+                    }
+
+                    if line.starts_with(" ") && info_index != 0 {
+                        description.push_str(split_the_output[1].trim());
+                        description.push_str(" ");
+                    }
+                }
+
+                let yum_program = YumProgram{
+                    name, core_type, version, release, description, summary, license, repository,
+                    from_repo, url, source, size
+                };
+
+                programs.push(yum_program);
+            }
+
+            Ok(programs)
+        },
+        Err(error) => {
+            eprintln!("That Error Occured: {}", error);
+
+            Err(std::io::Error::new(std::io::ErrorKind::NotFound, error))
+        }
+    }
 }
 
 pub fn check_if_exist_in_dpkg(program_name: &str) -> bool  {
