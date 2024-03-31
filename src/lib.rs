@@ -23,6 +23,31 @@ pub struct YumProgram {
     pub description: String
 }
 
+#[derive(Debug)]
+pub struct PacmanProgram {
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub url: String,
+    pub core_type: String,
+    pub licenses: Vec<String>,
+    pub groups: Vec<String>,
+    pub provides: Vec<String>,
+    pub depends_on: Vec<String>,
+    pub optional_dependencies: Vec<String>,
+    pub required_by: Vec<String>,
+    pub optional_for: Vec<String>,
+    pub conflicts_with: Vec<String>,
+    pub replaces: Vec<String>,
+    pub size: i32,
+    pub packager: String,
+    pub build_date: String,
+    pub install_date: String,
+    pub install_reason: String,
+    pub install_script: String,
+    pub validated_by: String
+}
+
 pub fn find_package_managers<'a>() -> Vec<&'a str> {
     let mut package_manager = vec![];
 
@@ -559,6 +584,538 @@ pub fn check_if_exist_in_rpm(program_name: &str) -> bool  {
 
     return result
 }
+
+pub fn get_pacman_program(program_name: &str) -> std::result::Result<PacmanProgram, std::io::Error> {
+    let get_pacman_program = std::process::Command::new("pacman").arg("-Qi").arg(program_name).output();
+    
+    match get_pacman_program {
+        Ok(answer) => {
+            let parse_the_answer = std::str::from_utf8(&answer.stdout).unwrap();
+            
+            let mut name: String = "".to_string();
+            let mut version: String = "".to_string();
+            let mut description: String = "".to_string();
+            let mut core_type: String = "".to_string();
+            let mut url: String = "".to_string();
+            let mut licenses: Vec<String> = vec![];
+            let mut groups: Vec<String> = vec![];
+            let mut provides: Vec<String> = vec![];
+            let mut depends_on: Vec<String> = vec![];
+            let mut optional_dependencies: Vec<String> = vec![];
+            let mut required_by: Vec<String> = vec![];
+            let mut optional_for: Vec<String> = vec![];
+            let mut conflicts_with: Vec<String> = vec![];
+            let mut replaces: Vec<String> = vec![];
+            let mut size: i32 = 0;
+            let mut packager: String = "".to_string();
+            let mut build_date: String = "".to_string();
+            let mut install_date: String = "".to_string();
+            let mut install_reason: String = "".to_string();
+            let mut install_script: String = "".to_string();
+            let mut validated_by: String = "".to_string();
+            
+            for line in parse_the_answer.lines() {
+                let split_the_line: Vec<&str> = line.split(" :").collect(); 
+            
+                if line.starts_with("Name") {
+                    name = split_the_line[1].trim().to_string();       
+                }
+
+                if line.starts_with("Version") {
+                    version = split_the_line[1].trim().to_string();
+                }
+
+                if line.starts_with("Description") {
+                    description = split_the_line[1].trim().to_string();
+                }
+                 
+                if line.starts_with("Architecture") {
+                    let splitted_part = split_the_line[1].trim().to_string();
+
+                    if splitted_part == "x86_64" {
+                        core_type = "64 bit".to_string();
+                    }
+
+                    if splitted_part == "i686" || splitted_part == "x86" {
+                        core_type = "32 bit".to_string();
+                    }
+
+                    if splitted_part == "any" {
+                        core_type = "all".to_string();
+                    }
+                }
+
+    
+                if line.starts_with("URL") {
+                    url = split_the_line[1].trim().to_string();
+                }
+
+                if line.starts_with("Licenses") {
+                    let split_the_licenses_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+                    for license in split_the_licenses_line {
+                        licenses.push(license.to_string());
+                    }
+                }
+
+                if line.starts_with("Groups") {
+                    let split_the_groups_line = split_the_line[1].trim();
+
+                    if split_the_groups_line == "None" {
+                        continue;
+                    } else {
+                        let split_the_splitted_groups_line: Vec<&str> = split_the_groups_line.split("  ").collect::<Vec<&str>>();
+
+                        for group in split_the_splitted_groups_line {
+                            groups.push(group.to_string());
+                        }
+                    }
+                }
+
+                if line.starts_with("Provides") {
+                    let split_the_provides_line = split_the_line[1].trim();
+
+                    if split_the_provides_line == "None" {
+                        continue;
+                    } else {
+                        let split_the_splitted_provides_line: Vec<&str> = split_the_provides_line.split("  ").collect::<Vec<&str>>();
+
+                        for provide in split_the_splitted_provides_line {
+                            provides.push(provide.to_string());
+                        }
+                    }
+                }
+
+                if line.starts_with("Depends On") {
+                    let split_the_depends_on_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+                        
+                    if split_the_depends_on_line[0] == "None" {
+                        continue;
+                    }
+
+                    for dependence in split_the_depends_on_line {
+                        depends_on.push(dependence.to_string());
+                    }
+                }
+                   
+               if line.starts_with("Optional Deps") {
+                    let split_the_optional_deps_line: Vec<&str> = split_the_line[1].trim().split("\n").collect::<Vec<&str>>();
+                    if split_the_optional_deps_line[0].contains("None") {
+                        continue;
+                    }
+
+                    optional_dependencies.push(split_the_optional_deps_line[0].to_string());
+
+                    for (index, parsed_lines) in parse_the_answer.lines().into_iter().enumerate() {
+                        if index > 9 && parsed_lines.starts_with("                  ") {
+                            optional_dependencies.push(parsed_lines.trim().to_string());
+                        }
+                    }
+               }
+
+               if line.starts_with("Required By") {
+                   let split_the_required_by_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+
+                    if split_the_required_by_line[0] == "None" {
+                        continue;
+                    }
+
+                    for requireds in split_the_required_by_line {
+                        required_by.push(requireds.to_string());
+                    }
+               }
+
+               if line.starts_with("Optional For") {
+                    let split_the_optional_for_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+
+                    if split_the_optional_for_line[0] == "None" {
+                        continue;
+                    }
+
+                    for optionals in split_the_optional_for_line {
+                        optional_for.push(optionals.to_string());
+                    }
+                   
+               }
+
+               
+               if line.starts_with("Conflicts With") {
+                   let split_the_conflicts_with_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+
+                    if split_the_conflicts_with_line[0] == "None" {
+                          continue;
+                    }
+
+                    for conflicters in split_the_conflicts_with_line {
+                        conflicts_with.push(conflicters.to_string());
+                    }
+               }
+
+               if line.starts_with("Replaces") {
+                     let split_the_replaces_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+
+                    if split_the_replaces_line[0] == "None" {
+                        continue;
+                    }
+
+                   for replaceds in split_the_replaces_line {
+                        replaces.push(replaceds.to_string());
+                    }
+               }
+
+               if line.starts_with("Installed Size") {
+                   let split_the_installed_size_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+
+                   if line.contains("KiB") {
+                        let split_further_the_size: Vec<&str> = split_the_installed_size_line[0].trim().split(" ").collect::<Vec<&str>>();
+
+                        let add_one_zero_to_end = format!("{}0", split_further_the_size[0]);
+
+                        let replace_the_string = add_one_zero_to_end.replace(".", "");
+
+                        size = replace_the_string.parse::<i32>().unwrap();
+                   }
+
+                    
+                   if line.contains("MiB") {
+                         let split_further_the_size: Vec<&str> = split_the_installed_size_line[0].trim().split(" ").collect::<Vec<&str>>();
+
+                        let add_one_zero_to_end = format!("{}0000", split_further_the_size[0]);
+
+                        let replace_the_string = add_one_zero_to_end.replace(".", "");
+
+                        size = replace_the_string.parse::<i32>().unwrap();
+                   }
+
+               }
+
+                if line.starts_with("Packager") {
+                   let split_the_packager_line = split_the_line[1].trim();
+                    
+                    packager = split_the_packager_line.to_string();
+                }
+
+
+                if line.starts_with("Build Date") {
+                    let split_the_build_date_line = split_the_line[1].trim();
+                    
+                    build_date = split_the_build_date_line.to_string();
+                }
+                
+                if line.starts_with("Install Date") {
+                    let split_the_install_date_line = split_the_line[1].trim();
+                    
+                    install_date = split_the_install_date_line.to_string();
+                }
+                    
+                if line.starts_with("Install Reason") {
+                    let split_the_install_reason_line = split_the_line[1].trim();
+                    
+                    install_reason = split_the_install_reason_line.to_string();
+                }
+
+                if line.starts_with("Install Script") {
+                    let split_the_install_script_line = split_the_line[1].trim();
+                    
+                    install_script = split_the_install_script_line.to_string();
+                }
+
+                if line.starts_with("Validated By") {
+                    let split_the_validated_by_line = split_the_line[1].trim();
+                    
+                    validated_by = split_the_validated_by_line.to_string();
+                }
+            }
+
+            let pacman_program = PacmanProgram {
+                name, version, description, url, core_type, licenses, groups, provides, depends_on, optional_dependencies, optional_for, required_by, conflicts_with, replaces, size: size, packager, build_date, install_date, install_reason, install_script, validated_by
+            };
+
+            return Ok(pacman_program);
+        },
+        Err(error) => Err(std::io::Error::new(std::io::ErrorKind::NotFound, error))
+    }        
+}
+
+pub fn list_all_pacman_programs() -> std::result::Result<Vec<PacmanProgram>, std::io::Error> {
+    let get_pacman_programs = std::process::Command::new("pacman").arg("-Qi").output();
+    let mut error_string = String::new();
+    let mut programs = vec![];
+
+    match get_pacman_programs {
+        Ok(answer) => {
+            let parse_the_answer = std::str::from_utf8(&answer.stdout).unwrap();
+            let split_the_parsed_answer: Vec<&str> = parse_the_answer.split("Name            ").collect::<Vec<&str>>();
+
+            for program in split_the_parsed_answer.clone().into_iter() {
+                let mut name: String = "".to_string();
+                let mut version: String = "".to_string();
+                let mut description: String = "".to_string();
+                let mut core_type: String = "".to_string();
+                let mut url: String = "".to_string();
+                let mut licenses: Vec<String> = vec![];
+                let mut groups: Vec<String> = vec![];
+                let mut provides: Vec<String> = vec![];
+                let mut depends_on: Vec<String> = vec![];
+                let mut optional_dependencies: Vec<String> = vec![];
+                let mut required_by: Vec<String> = vec![];
+                let mut optional_for: Vec<String> = vec![];
+                let mut conflicts_with: Vec<String> = vec![];
+                let mut replaces: Vec<String> = vec![];
+                let mut size: i32 = 0;
+                let mut packager: String = "".to_string();
+                let mut build_date: String = "".to_string();
+                let mut install_date: String = "".to_string();
+                let mut install_reason: String = "".to_string();
+                let mut install_script: String = "".to_string();
+                let mut validated_by: String = "".to_string();
+
+                for (_, line) in program.lines().into_iter().enumerate() {
+                    if line.starts_with(" ") {
+                        continue;
+                    }
+
+                    let split_the_line: Vec<&str> = line.split(" :").collect(); 
+            
+                    if line.starts_with(": ") {
+                        name = split_the_line[0].trim().to_string().replace(": ", "");       
+                    }
+
+                    if line.starts_with("Version") {
+                        version = split_the_line[1].trim().to_string();
+                    }
+
+                    if line.starts_with("Description") {
+                        description = split_the_line[1].trim().to_string();
+                    }
+
+                    if line.starts_with("Architecture") {
+                        let splitted_part = split_the_line[1].trim().to_string();
+
+                        if splitted_part == "x86_64" {
+                            core_type = "64 bit".to_string();
+                        }
+
+                        if splitted_part == "i686" || splitted_part == "x86" {
+                            core_type = "32 bit".to_string();
+                        }
+
+                        if splitted_part == "any" {
+                            core_type = "all".to_string();
+                        }
+                    }
+
+                    if line.starts_with("URL") {
+                        url = split_the_line[1].trim().to_string();
+                    }
+
+                    if line.starts_with("Licenses") {
+                        let split_the_licenses_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+
+                        for license in split_the_licenses_line {
+                            licenses.push(license.to_string());
+                        }
+                    }
+
+                    if line.starts_with("Groups") {
+                        let split_the_groups_line = split_the_line[1].trim();
+
+                        if split_the_groups_line == "None" {
+                            continue;
+                        } else {
+                            let split_the_splitted_groups_line: Vec<&str> = split_the_groups_line.split("  ").collect::<Vec<&str>>();
+
+                            for group in split_the_splitted_groups_line {
+                                groups.push(group.to_string());
+                            }
+                        }
+                    }
+
+                    if line.starts_with("Provides") {
+                        let split_the_provides_line = split_the_line[1].trim();
+
+                        if split_the_provides_line == "None" {
+                            continue;
+                        } else {
+                            let split_the_splitted_provides_line: Vec<&str> = split_the_provides_line.split("  ").collect::<Vec<&str>>();
+
+                            for provide in split_the_splitted_provides_line {
+                                provides.push(provide.to_string());
+                            }
+                        }
+                    }
+
+                    if line.starts_with("Depends On") {
+                        let split_the_depends_on_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+                        
+                        if split_the_depends_on_line[0] == "None" {
+                            continue;
+                        }
+
+                        for dependence in split_the_depends_on_line {
+                            depends_on.push(dependence.to_string());
+                        }
+                    }
+                   
+                   if line.starts_with("Optional Deps") {
+                        let split_the_optional_deps_line: Vec<&str> = split_the_line[1].trim().split("\n").collect::<Vec<&str>>();
+
+                        let stopl1 = split_the_optional_deps_line[0].trim();
+
+                        if stopl1 == "None" {
+                            continue;
+                        }
+
+                        let format_the_starting_name = format!(": {}\n", name);
+
+                        for parsed_entity in &split_the_parsed_answer {
+                            if parsed_entity.starts_with(&format_the_starting_name) {
+
+                                let split_the_parsed_entity = parsed_entity.split("Required By     : ").collect::<Vec<&str>>()[0];
+
+                                optional_dependencies.push(stopl1.to_string());
+
+                                for opt_dep_lines in split_the_parsed_entity.lines() {
+                                    if !opt_dep_lines.starts_with("                  ") {
+                                        continue;
+                                    }
+
+                                    optional_dependencies.push(opt_dep_lines.trim().to_string());
+                                }   
+                            }
+                        }
+                   }
+
+                   if line.starts_with("Required By") {
+                        let split_the_required_by_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+
+                        if split_the_required_by_line[0] == "None" {
+                            continue;
+                        }
+
+                        for requireds in split_the_required_by_line {
+                            required_by.push(requireds.to_string());
+                        }
+                   }
+
+                   if line.starts_with("Optional For") {
+                        let split_the_optional_for_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+
+                        if split_the_optional_for_line[0] == "None" {
+                            continue;
+                        }
+
+                        for optionals in split_the_optional_for_line {
+                            optional_for.push(optionals.to_string());
+                        }
+                   }
+
+                   if line.starts_with("Conflicts With") {
+                        let split_the_conflicts_with_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+
+                        if split_the_conflicts_with_line[0] == "None" {
+                            continue;
+                        }
+
+                        for conflicters in split_the_conflicts_with_line {
+                            conflicts_with.push(conflicters.to_string());
+                        }
+                   }
+
+                   if line.starts_with("Replaces") {
+                        let split_the_replaces_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+
+                        if split_the_replaces_line[0] == "None" {
+                            continue;
+                        }
+
+                        for replaceds in split_the_replaces_line {
+                            replaces.push(replaceds.to_string());
+                        }
+                   }
+
+                   if line.starts_with("Installed Size") {
+                        let split_the_installed_size_line: Vec<&str> = split_the_line[1].trim().split("  ").collect::<Vec<&str>>();
+
+                        if line.contains("KiB") {
+                            let split_further_the_size: Vec<&str> = split_the_installed_size_line[0].trim().split(" ").collect::<Vec<&str>>();
+
+                            let add_one_zero_to_end = format!("{}0", split_further_the_size[0]);
+
+                            let replace_the_string = add_one_zero_to_end.replace(".", "");
+
+                            size = replace_the_string.parse::<i32>().unwrap();
+                        }
+
+                        if line.contains("MiB") {
+                            let split_further_the_size: Vec<&str> = split_the_installed_size_line[0].trim().split(" ").collect::<Vec<&str>>();
+
+                            let add_one_zero_to_end = format!("{}0000", split_further_the_size[0]);
+
+                            let replace_the_string = add_one_zero_to_end.replace(".", "");
+
+                            size = replace_the_string.parse::<i32>().unwrap();
+                        }
+                   }
+
+                   if line.starts_with("Packager") {
+                        let split_the_packager_line = split_the_line[1].trim();
+                    
+                        packager = split_the_packager_line.to_string();
+                   }
+
+
+                   if line.starts_with("Build Date") {
+                        let split_the_build_date_line = split_the_line[1].trim();
+                    
+                        build_date = split_the_build_date_line.to_string();
+                   }
+                
+                   if line.starts_with("Install Date") {
+                        let split_the_install_date_line = split_the_line[1].trim();
+                    
+                        install_date = split_the_install_date_line.to_string();
+                   }
+                    
+                   if line.starts_with("Install Reason") {
+                        let split_the_install_reason_line = split_the_line[1].trim();
+                    
+                        install_reason = split_the_install_reason_line.to_string();
+                   }
+
+                   if line.starts_with("Install Script") {
+                       let split_the_install_script_line = split_the_line[1].trim();
+                    
+                        install_script = split_the_install_script_line.to_string();
+                   }
+
+                   if line.starts_with("Validated By") {
+                        let split_the_validated_by_line = split_the_line[1].trim();
+                    
+                        validated_by = split_the_validated_by_line.to_string();
+                   }
+                }
+
+                let pacman_program = PacmanProgram {
+                    name, version, description, url, core_type, licenses, groups, provides, depends_on, optional_dependencies, optional_for, required_by, conflicts_with, replaces, size: size, packager, build_date, install_date, install_reason, install_script, validated_by
+                };
+
+                programs.push(pacman_program);
+            }
+        },
+        Err(error) => {
+            eprintln!("this error occured: {}", error);
+            
+            error_string = error.to_string();
+        }
+    }
+
+    return match error_string.as_str() {
+        "" => Ok(programs),
+        &_ => Err(std::io::Error::new(std::io::ErrorKind::NotFound, error_string))
+    };
+}
+
+
 
 pub fn check_if_exist_in_pacman(program_name: &str) -> bool  {
     let mut result = false;
