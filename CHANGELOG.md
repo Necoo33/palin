@@ -1,5 +1,10 @@
 # Palin
 
+## v0.5.0
+
+`find_package_managers()` function updated, now it detects apk package manager.
+Support for apk extended. Added `ApkProgram` and `ApkProgramSubVersion` structs and `check_if_exist_in_apk()`, `list_all_apk_programs()` and `get_apk_program()` functions.
+
 ## v0.4.0
 
 Support for pacman extended. Added `PacmanProgram` struct and `list_all_pacman_programs()`, `get_pacman_program()`.

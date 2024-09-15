@@ -17,7 +17,7 @@ fn main() {
 
     // ["apt", "dpkg"]
     // ["yum", "dnf", "rpm"]
-    // ["busybox"]
+    // ["apk", "busybox"]
     // etc...
 }
 

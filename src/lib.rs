@@ -100,6 +100,13 @@ pub fn find_package_managers<'a>() -> Vec<&'a str> {
         Err(_) => ()
     }
 
+    let check_if_apk_exist = std::process::Command::new("apk").output();
+
+    match check_if_apk_exist {
+        Ok(_) => package_manager.push("apk"),
+        Err(_) => ()
+    }
+
     return package_manager
 }
 
@@ -1167,6 +1174,231 @@ pub fn check_if_exist_in_busybox(program_name: &str) -> bool  {
     }
 
     return result
+}
+
+pub fn check_if_exist_in_apk(program_name: &str) -> bool  {
+    let mut result = false;
+
+    let get_programs_command = std::process::Command::new("apk")
+                                                                                .arg("info")
+                                                                                .arg("-vv")
+                                                                                .output();
+
+    match get_programs_command {
+        Ok(programs) => {
+            let our_command = std::str::from_utf8(&programs.stdout).unwrap();
+
+            for line in our_command.lines() {
+                if line.starts_with(program_name) {
+                    result = true;
+                    break;
+                }
+            }
+        },
+        Err(error) => {
+            eprintln!("that error occured: {}", error)
+        }
+    }
+
+    return result
+}
+
+#[derive(Debug, Clone)]
+pub struct ApkProgram {
+    pub name: String,
+    pub long_name: String,
+    pub version: String,
+    pub description: String,
+    pub website: String,
+    pub size: Option<i32>,
+    pub update: String,
+    pub sub_versions: Vec<ApkProgramSubVersion>
+}
+
+#[derive(Debug, Clone)]
+pub struct ApkProgramSubVersion {
+    pub name: String,
+    pub description: String,
+    pub website: String,
+    pub size: i32
+}
+
+pub fn get_apk_program(program_name: &str) -> std::result::Result<ApkProgram, std::io::Error> {
+    let get_program_command = std::process::Command::new("apk")
+                                                        .arg("info")
+                                                        .arg("-vv")
+                                                        .arg(program_name)
+                                                        .output();
+
+    match get_program_command {
+        Ok(output) => {
+            let our_output = std::str::from_utf8(&output.stdout).unwrap();
+            let mut long_name = "".to_string();
+            let mut version = "".to_string();
+            let mut description = "".to_string();
+            let mut website = "".to_string();
+            let mut size = "".to_string();
+            let mut update_info = "".to_string();
+
+            let mut get_individual_programs = our_output
+                                                        .lines()
+                                                        .into_iter()
+                                                        .map(|line| line.split(": ").collect::<Vec<&str>>()[0])
+                                                        .collect::<Vec<&str>>();
+
+            let mut prev_item: &str = "";
+            get_individual_programs.retain(|current_item| {
+                if prev_item == "" {
+                    prev_item = *current_item;
+                    return true
+                } else {
+                    if prev_item != *current_item {
+                        prev_item = *current_item;
+                        return true
+                    } else {
+                        return false;
+                    }
+                }
+            });
+
+            let mut subversions: Vec<ApkProgramSubVersion> = vec![];
+
+            for pr in get_individual_programs.into_iter() {
+                let mut sub_program_name = "".to_string();
+                let mut sub_program_description = "".to_string();
+                let mut sub_program_website = "".to_string();
+                let mut sub_program_size = "".to_string();
+
+                for line in our_output.lines().into_iter() {
+                    let split_the_line = line.split(": ").collect::<Vec<&str>>();
+                    let first_part_of_line = split_the_line[0].trim();
+                    let second_part_of_line = split_the_line[1].trim();
+
+                    if first_part_of_line == program_name {
+                        if second_part_of_line.starts_with("http") {
+                            website = second_part_of_line.to_string();
+                        } else if second_part_of_line.contains("MiB") {
+                            size = format!("{}000000", second_part_of_line.split(" ").collect::<Vec<&str>>()[0]);
+                        } else if second_part_of_line.contains("KiB") {
+                            size = format!("{}000", second_part_of_line.split(" ").collect::<Vec<&str>>()[0]);
+                        }
+                    } else {
+                        sub_program_name = pr.to_string();
+
+                        if second_part_of_line.starts_with("http") {
+                            sub_program_website = second_part_of_line.to_string();
+                        }   else if second_part_of_line.contains("MiB") {
+                            sub_program_size = format!("{}000000", second_part_of_line.split(" ").collect::<Vec<&str>>()[0]);
+                        } else if second_part_of_line.contains("KiB") {
+                            sub_program_size = format!("{}000", second_part_of_line.split(" ").collect::<Vec<&str>>()[0]);
+                        } else {
+                            sub_program_description = second_part_of_line.to_string();
+                        }
+                    }
+                }
+
+                if sub_program_name != "".to_string() &&
+                   sub_program_description != "".to_string() &&
+                   sub_program_website != "".to_string() &&
+                   sub_program_size != "".to_string() {
+                    subversions.push(ApkProgramSubVersion {
+                        name: sub_program_name,
+                        description: sub_program_description,
+                        website: sub_program_website,
+                        size: sub_program_size.parse::<i32>().unwrap()
+                    })
+                }
+            }
+
+            let get_program_command = std::process::Command::new("apk")
+                                                                .arg("info")
+                                                                .arg("-vv")
+                                                                .output()
+                                                                .unwrap();
+
+            let get_program_command = std::str::from_utf8(&get_program_command.stdout).unwrap();
+
+            for line in get_program_command.lines() {
+                if line.starts_with(program_name) {
+                    let splitted_line = line.split(" - ").collect::<Vec<&str>>();
+
+                    description = splitted_line[1].to_string();
+
+                    let split_the_splitted_line = splitted_line[0].split("-").collect::<Vec<&str>>();
+                    let length_of_the_split = split_the_splitted_line.len();
+
+                    for (index, split) in split_the_splitted_line.clone().into_iter().enumerate() {
+                        if index + 1 == length_of_the_split {
+                            update_info = split.to_string()
+                        }
+
+                        if split.chars().next().map_or(false, |char| char.is_numeric()) {
+                            version = split.to_string();
+                        }
+                    };
+
+                    update_info = split_the_splitted_line[length_of_the_split-1].to_string();
+
+                    long_name = split_the_splitted_line.join("-");
+
+                    break;
+                } else {
+                    continue;
+                }
+            }
+
+            subversions.retain(|item| {
+                if item.name == program_name {
+                    return false;
+                } else {
+                    return true;
+                }
+            });
+            
+            let size_val: Option<i32>;
+
+            if size == "" {
+                size_val = None;
+            } else {
+                size_val = Some(size.parse::<i32>().unwrap());
+            }
+
+            Ok(ApkProgram {
+                name: program_name.to_string(),
+                long_name,
+                version,
+                description,
+                website,
+                size: size_val,
+                update: update_info,
+                sub_versions: subversions
+            })
+        }
+        Err(error) => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error))
+    }
+}
+
+pub fn list_all_apk_programs() -> std::result::Result<Vec<ApkProgram>, std::io::Error> {
+    let get_all_apk_program_names = std::process::Command::new("apk")
+                                                                            .arg("info")
+                                                                            .output();
+
+    match get_all_apk_program_names {
+        Ok(output) => {
+            let get_output = std::str::from_utf8(&output.stdout).unwrap();
+
+            let mut all_apk_programs = vec![];
+
+            for line in get_output.lines() {
+                let apk_program = get_apk_program(line.trim()).unwrap();
+
+                all_apk_programs.push(apk_program);   
+            }
+
+            Ok(all_apk_programs)
+        },
+        Err(error) => Err(std::io::Error::new(std::io::ErrorKind::Other, error))
+    }
 }
 
 pub fn check_if_curl_exist() -> bool {
