@@ -48,6 +48,27 @@ pub struct PacmanProgram {
     pub validated_by: String
 }
 
+#[derive(Debug, Clone)]
+pub struct ApkProgram {
+    pub name: String,
+    pub long_name: String,
+    pub version: String,
+    pub description: String,
+    pub website: String,
+    pub size: Option<i32>,
+    pub update: String,
+    pub sub_versions: Vec<ApkProgramSubVersion>
+}
+
+#[derive(Debug, Clone)]
+pub struct ApkProgramSubVersion {
+    pub name: String,
+    pub description: String,
+    pub website: String,
+    pub size: i32
+}
+
+
 pub fn find_package_managers<'a>() -> Vec<&'a str> {
     let mut package_manager = vec![];
 
@@ -290,7 +311,14 @@ pub fn check_if_exist_in_apt(program_name: &str) -> bool  {
 }
 
 pub fn get_yum_program(program: &str) -> std::result::Result<YumProgram, std::io::Error> {
-    let get_yum_lists = std::process::Command::new("yum").arg("info").arg(program).output();
+    let check_if_yum_exist = std::process::Command::new("yum").output();
+    
+    let get_yum_lists;
+
+    match check_if_yum_exist {
+        Ok(_) => get_yum_lists = std::process::Command::new("yum").arg("info").arg(program).output(),
+        Err(_) => get_yum_lists = std::process::Command::new("dnf").arg("info").arg(program).output()
+    }
 
     match get_yum_lists {
         Ok(answer) => {
@@ -379,7 +407,14 @@ pub fn get_yum_program(program: &str) -> std::result::Result<YumProgram, std::io
 
 
 pub fn list_all_yum_programs() -> std::result::Result<Vec<YumProgram>, std::io::Error> {
-    let get_yum_lists = std::process::Command::new("yum").arg("info").arg("installed").output();
+    let check_if_yum_exist = std::process::Command::new("yum").output();
+    
+    let get_yum_lists;
+
+    match check_if_yum_exist {
+        Ok(_) => get_yum_lists = std::process::Command::new("yum").arg("info").arg("installed").output(),
+        Err(_) => get_yum_lists = std::process::Command::new("dnf").arg("info").arg("installed").output()
+    }
 
     match get_yum_lists {
         Ok(answer) => {
@@ -1201,26 +1236,6 @@ pub fn check_if_exist_in_apk(program_name: &str) -> bool  {
     }
 
     return result
-}
-
-#[derive(Debug, Clone)]
-pub struct ApkProgram {
-    pub name: String,
-    pub long_name: String,
-    pub version: String,
-    pub description: String,
-    pub website: String,
-    pub size: Option<i32>,
-    pub update: String,
-    pub sub_versions: Vec<ApkProgramSubVersion>
-}
-
-#[derive(Debug, Clone)]
-pub struct ApkProgramSubVersion {
-    pub name: String,
-    pub description: String,
-    pub website: String,
-    pub size: i32
 }
 
 pub fn get_apk_program(program_name: &str) -> std::result::Result<ApkProgram, std::io::Error> {
