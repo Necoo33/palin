@@ -1,8 +1,12 @@
 # Palin
 
+## v0.7.0
+
+`list_all_yum_programs()` function updated, now it not returns an empty yum program on the 0. index. Also i discovered that function's don't work properly if your system's language is not english, so use it with caution. Appeared that the recent bugs happened because my fedora and centos system language is not english. In next releases i'll add turkish support for that function, about adding support for other language for that function, your contributions will be welcome.
+
 ## v0.6.0
 
-`list_all_yum_programs()` and `get_yum_program()` functions updated, now they also work if your os don't use yum but use dnf. Also i noticed that functions are only working at wsl's, not working on centos 9 or fedora 39, because they don't return the required terminal command directly and we are working on another solution for that.
+`list_all_yum_programs()` and `get_yum_program()` functions updated, now they also work if your os don't use yum but use dnf.
 
 ## v0.5.0
 

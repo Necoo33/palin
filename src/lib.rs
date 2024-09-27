@@ -423,7 +423,13 @@ pub fn list_all_yum_programs() -> std::result::Result<Vec<YumProgram>, std::io::
             
             let mut programs = vec![];
 
+            let mut i = 0;
             for program in split_the_parsed_answer.into_iter() {
+                if i == 0 {
+                    i = i + 1;
+                    continue;
+                }
+                
                 let mut name = String::new();
                 let mut core_type = String::new();
                 let mut version = String::new();
