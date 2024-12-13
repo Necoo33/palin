@@ -1,5 +1,9 @@
 # Palin
 
+## v0.8.0
+
+`AptSourceRepo` struct and `add_source_repo_to_apt` functions added. That benefits you to add a source repo to apt package manager with options, release, parts and comments.
+
 ## v0.7.0
 
 `list_all_yum_programs()` function updated, now it not returns an empty yum program on the 0. index. Also i discovered that function's don't work properly if your system's language is not english, so use it with caution. Appeared that the recent bugs happened because my fedora and centos system language is not english. In next releases i'll add turkish support for that function, about adding support for other language for that function, your contributions will be welcome.

@@ -310,6 +310,111 @@ pub fn check_if_exist_in_apt(program_name: &str) -> bool  {
     return result
 }
 
+pub struct AptSourceRepo {
+    pub url: String,
+    pub options: Option<Vec<String>>,
+    pub distro: String,
+    pub parts: Vec<String>,
+    pub comments: Vec<String>
+}
+
+pub fn add_source_repo_to_apt(opts: AptSourceRepo) -> std::result::Result<(), std::io::Error> {
+    let create_repo_record_string = match opts.options {
+        Some(options) => {
+            match options.len() {
+                0 => {
+                    let mut parts_str = "".to_string();
+
+                    for part in &opts.parts {
+                        parts_str = format!("{} {}", parts_str, part)
+                    }
+
+                    format!("deb {} {} {}", opts.url, opts.distro, parts_str)
+                },
+                _ => {
+                    let mut options_str = "[".to_string();
+
+                    let length_of_options = &options.len();
+
+                    for (index, opt) in options.into_iter().enumerate() {
+                        if index + 1 == *length_of_options {
+                            options_str = format!("{}]", options_str)
+                        } else {
+                            options_str = format!("{}, {}", options_str, opt);
+                        }
+                    }
+
+                    let mut parts_str = "".to_string();
+
+                    for part in &opts.parts {
+                        parts_str = format!("{} {}", parts_str, part)
+                    }
+
+                    format!("deb {} {} {} {}", options_str, opts.url, opts.distro, parts_str)
+                }
+            }
+        },
+        None => {
+            let mut parts_str = "".to_string();
+
+            for part in &opts.parts {
+                parts_str = format!("{} {}", parts_str, part)
+            }
+
+            format!("deb {} {} {}", opts.url, opts.distro, parts_str)
+        }
+    };
+
+    use std::fs::OpenOptions;
+    use std::io::{Read, Write};
+
+    match OpenOptions::new().read(true).append(true).open("/etc/apt/sources.list") {
+        Ok(mut sources_file) => {
+            let buffer = &mut String::new();
+
+            match sources_file.read_to_string(buffer) {
+                Ok(_) => {
+                    match buffer.contains(&create_repo_record_string) {
+                        true => Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "That source repo already exist with exact same configurations")),
+                        false => {
+                            match buffer.contains(&opts.url) {
+                                true => Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "That source repo already exist but with different configurations")),
+                                false => {
+
+                                    for comment in &opts.comments {
+                                        let comment_string = format!("\n{}", comment);
+
+                                        if let Err(error) = sources_file.write(comment_string.as_bytes()) {
+                                            println!("error occured when we try to write comments on sources.list!");
+
+                                            return Err(std::io::Error::new(error.kind(), error));
+                                        }
+                                    }
+
+                                    match sources_file.write(format!("\n{}", create_repo_record_string).as_bytes()) {
+                                        Ok(_) => Ok(()),
+                                        Err(error) => Err(std::io::Error::new(error.kind(), error))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                Err(error) => {
+                    println!("Error when we try to read the sources.list file!");
+
+                    Err(std::io::Error::new(error.kind(), error))
+                }
+            }
+        },
+        Err(error) => {
+            println!("error occured when we try to open sources.list file!");
+
+            Err(std::io::Error::new(error.kind(), error))
+        }
+    }
+}
+
 pub fn get_yum_program(program: &str) -> std::result::Result<YumProgram, std::io::Error> {
     let check_if_yum_exist = std::process::Command::new("yum").output();
     
